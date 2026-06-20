@@ -1,0 +1,5 @@
+session.json
+session.backup.json
+.env
+.venv
+__pycache__
