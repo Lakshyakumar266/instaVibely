@@ -3,20 +3,50 @@ async def handle_hello_command(
     thread_id,
 ):
     message = """
-👋 Hello!
+👋 Welcome to InstaVibely
 
-Welcome to InstaVibely.
+Your personal Instagram content vault.
 
-Available Commands:
+Simply send me content through DMs and I'll automatically save it for you.
 
-📚 /list
-View saved reels, audio and posts
+📥 Supported Content
+• Reels
+• Posts
+• Audio / Songs
+• Text Notes
 
-👋 /hello
-Show this message
+✨ What I Do
+• Save content automatically
+• Organize everything in your private library
+• Make content searchable
+• Prepare content for future AI workflows
 
-ℹ️ /about
-About InstaVibely
+📜 Commands
+
+/hello
+Show this welcome message
+
+/about
+Learn more about InstaVibely
+
+/list
+View your recently saved content
+
+/search <keyword>
+Search your saved content
+(coming soon)
+
+📝 Examples
+
+Send:
+• A Reel
+• A Post
+• An Audio Track
+• A Text Message
+
+I'll save it automatically.
+
+🚀 Built for creators, researchers, students, founders, and anyone who wants a better way to save Instagram content.
 """
 
     await client.direct_send(
