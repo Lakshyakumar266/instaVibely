@@ -7,11 +7,15 @@ import socket
 from aiograpi.realtime.client import RealtimeClient
 from client import InstaClient
 from datetime import datetime
-from services.content_service import get_saved_content
 
 from commands.list import handle_list_command
 from commands.hello import handle_hello_command
 from commands.about import handle_about_command
+
+from commands.reels import handle_reels_command
+from commands.posts import handle_posts_command
+from commands.audio import handle_audios_command
+
 
 INSTAGRAM_CLIENT = None
 
@@ -89,9 +93,17 @@ def parse_text(msg):
 
 
 def parse_reel(msg):
+
     reel = msg["xma_clip"][0]
 
     record = base_record(msg)
+
+    print("\nREEL PAYLOAD")
+    print(json.dumps(
+        msg["xma_clip"][0],
+        indent=2,
+        default=str,
+    ))
 
     record.update({
         "message_type": "reel",
@@ -116,6 +128,13 @@ def parse_post(msg):
     post = msg["xma_media_share"][0]
 
     record = base_record(msg)
+
+    print("\nPOST PAYLOAD")
+    print(json.dumps(
+        msg["xma_media_share"][0],
+        indent=2,
+        default=str,
+    ))
 
     record.update({
         "message_type": "post",
@@ -185,37 +204,12 @@ async def send_dm_reply(client,thread_id,text,):
         thread_ids=[str(thread_id)],
     )
 
-async def handle_list_command(
-    client,
-    thread_id,
-):
-    items = await get_saved_content()
 
-    if not items:
-        await send_dm_reply(
-            client,
-            thread_id,
-            "No saved content found."
-        )
+import traceback
+async def process_event(event, client):
+    if sender and sender.get("username") == "instavibely.app":
         return
 
-    lines = []
-
-    for i, item in enumerate(items, start=1):
-        lines.append(
-            f"{i}. [{item['message_type'].upper()}]\n"
-            f"{item['media_url']}"
-        )
-
-    message = "\n\n".join(lines)
-
-    await send_dm_reply(
-        client,
-        thread_id,
-        message,
-    )
-
-async def process_event(event, client):
     from services.user_service import resolve_user
 
     try:
@@ -235,10 +229,69 @@ async def process_event(event, client):
 
         if item_type == "text":
             text = (msg.get("text") or "").strip().lower()
+
             if text in ["/list", "list", "/saved"]:
                 await handle_list_command(
                     client,
                     msg["thread_id"],
+                    sender["instagram_user_id"],
+                )
+                return
+
+            if text.startswith("/reels"):
+                parts = text.split()
+
+                page = 1
+
+                if len(parts) > 1:
+                    try:
+                        page = int(parts[1])
+                    except ValueError:
+                        pass
+
+                await handle_reels_command(
+                    client,
+                    msg["thread_id"],
+                    sender["instagram_user_id"],
+                    page,
+                )
+                return
+
+            if text.startswith("/posts"):
+                parts = text.split()
+
+                page = 1
+
+                if len(parts) > 1:
+                    try:
+                        page = int(parts[1])
+                    except ValueError:
+                        pass
+
+                await handle_posts_command(
+                    client,
+                    msg["thread_id"],
+                    sender["instagram_user_id"],
+                    page,
+                )
+                return
+
+            if text.startswith("/audio"):
+                parts = text.split()
+
+                page = 1
+
+                if len(parts) > 1:
+                    try:
+                        page = int(parts[1])
+                    except ValueError:
+                        pass
+
+                await handle_audios_command(
+                    client,
+                    msg["thread_id"],
+                    sender["instagram_user_id"],
+                    page,
                 )
                 return
 
@@ -255,10 +308,11 @@ async def process_event(event, client):
                     msg["thread_id"],
                 )
                 return
+
             record = parse_text(msg)
 
-
         elif item_type == "xma_clip":
+            
             record = parse_reel(msg)
 
         elif item_type == "xma_media_share":
@@ -280,7 +334,7 @@ async def process_event(event, client):
 
     except Exception as e:
         print("❌ PROCESSING ERROR")
-        print(e)
+        traceback.print_exc()
 
 def on_message(event):
     asyncio.create_task(
@@ -298,7 +352,6 @@ async def heartbeat():
 
 async def main():
     await connect_db()
-
 
     insta = InstaClient()
 
