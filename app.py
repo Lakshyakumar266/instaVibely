@@ -207,8 +207,7 @@ async def send_dm_reply(client,thread_id,text,):
 
 import traceback
 async def process_event(event, client):
-    if sender and sender.get("username") == "instavibely.app":
-        return
+    
 
     from services.user_service import resolve_user
 
@@ -224,6 +223,9 @@ async def process_event(event, client):
                 client,
                 sender_id,
             )
+
+        if sender and sender.get("username") == "instavibely.app":
+            return
 
         item_type = msg.get("item_type")
 
