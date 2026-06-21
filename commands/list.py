@@ -2,6 +2,42 @@ from services.content_service import (
     get_saved_content
 )
 
+def split_message(text: str, max_length: int = 1500):
+    chunks = []
+
+    while len(text) > max_length:
+        split_at = text.rfind("\n", 0, max_length)
+
+        if split_at == -1:
+            split_at = max_length
+
+        chunks.append(text[:split_at])
+        text = text[split_at:].lstrip()
+
+    chunks.append(text)
+
+    return chunks
+
+from services.content_service import get_saved_content
+
+
+def split_message(text: str, max_length: int = 900):
+    chunks = []
+
+    while len(text) > max_length:
+        split_at = text.rfind("\n", 0, max_length)
+
+        if split_at == -1:
+            split_at = max_length
+
+        chunks.append(text[:split_at])
+        text = text[split_at:].lstrip()
+
+    chunks.append(text)
+
+    return chunks
+
+
 async def handle_list_command(
     client,
     thread_id,
@@ -30,13 +66,37 @@ and they'll appear here.
 
     for item in items:
         if item["message_type"] == "reel":
-            reels.append(item["media_url"])
+            reels.append(item)
 
         elif item["message_type"] == "audio":
-            audios.append(item["media_url"])
+            audios.append(item)
 
         elif item["message_type"] == "post":
-            posts.append(item["media_url"])
+            posts.append(item)
+
+    content_lines = []
+
+    for index, item in enumerate(items[:50], start=1):
+
+        emoji = {
+            "reel": "🎬",
+            "audio": "🎵",
+            "post": "📸",
+            "text": "📝",
+        }.get(item["message_type"], "📦")
+
+        url = item.get("media_url")
+
+        if not url:
+            continue
+
+        # Skip broken old records
+        if len(url) > 500:
+            continue
+
+        content_lines.append(
+            f"{index}. {emoji} {url}"
+        )
 
     message = f"""
 📚 InstaVibely Library
@@ -51,10 +111,7 @@ and they'll appear here.
 
 Recent Content
 
-{chr(10).join(
-    f"• {item['media_url']}"
-    for item in items[:10]
-)}
+{chr(10).join(content_lines)}
 
 ━━━━━━━━━━━━━━
 
@@ -65,7 +122,15 @@ Commands
 /about
 """
 
-    await client.direct_send(
-        text=message.strip(),
-        thread_ids=[str(thread_id)],
+    chunks = split_message(
+        message.strip(),
+        max_length=900,
     )
+
+    for chunk in chunks:
+        print("=" * 80)
+        print("SENDING CHUNK")
+        print(f"Length: {len(chunk)}")
+        print(chunk)
+        print("=" * 80)
+        await client.direct_send(text=chunk,thread_ids=[str(thread_id)],)
