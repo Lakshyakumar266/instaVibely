@@ -1,7 +1,7 @@
 import asyncio
 import json
 from pprint import pprint
-from db.db import connect_db 
+from db.db import connect_db
 import socket
 
 from aiograpi.realtime.client import RealtimeClient
@@ -16,13 +16,14 @@ from commands.reels import handle_reels_command
 from commands.posts import handle_posts_command
 from commands.audio import handle_audios_command
 
-
 INSTAGRAM_CLIENT = None
+
 
 def pretty_print(record):
     print("\n" + "=" * 100)
     print(json.dumps(record, indent=2, default=str))
     print("=" * 100)
+
 
 def parse_instagram_timestamp(timestamp):
     if not timestamp:
@@ -40,43 +41,24 @@ def parse_instagram_timestamp(timestamp):
     except Exception:
         return None
 
+
 def base_record(msg):
     return {
         "instagram_message_id": str(
-            msg.get("message_id")
-            or msg.get("item_id")
-            or msg.get("id")
+            msg.get("message_id") or msg.get("item_id") or msg.get("id")
         ),
-
-        "instagram_thread_id": str(
-            msg.get("thread_id")
-        ),
-
-        "sender_id": str(
-            msg.get("user_id")
-        ),
-
+        "instagram_thread_id": str(msg.get("thread_id")),
+        "sender_id": str(msg.get("user_id")),
         "sender_username": None,
-
         "status": "QUEUE",
-
         "message_type": "unknown",
-
         "text_content": None,
-
         "media_id": None,
         "media_url": None,
-
         "creator_username": None,
-
         "audio_id": None,
-
         "preview_url": None,
-
-        "sent_at": parse_instagram_timestamp(
-    msg.get("timestamp")
-),
-
+        "sent_at": parse_instagram_timestamp(msg.get("timestamp")),
         "raw_payload": msg,
     }
 
@@ -84,10 +66,12 @@ def base_record(msg):
 def parse_text(msg):
     record = base_record(msg)
 
-    record.update({
-        "message_type": "text",
-        "text_content": msg.get("text"),
-    })
+    record.update(
+        {
+            "message_type": "text",
+            "text_content": msg.get("text"),
+        }
+    )
 
     return record
 
@@ -99,27 +83,23 @@ def parse_reel(msg):
     record = base_record(msg)
 
     print("\nREEL PAYLOAD")
-    print(json.dumps(
-        msg["xma_clip"][0],
-        indent=2,
-        default=str,
-    ))
+    print(
+        json.dumps(
+            msg["xma_clip"][0],
+            indent=2,
+            default=str,
+        )
+    )
 
-    record.update({
-        "message_type": "reel",
-
-        "media_id": str(
-            msg.get("original_media_igid")
-        ),
-
-        "media_url": reel.get("target_url"),
-
-        "creator_username":
-            reel.get("header_title_text"),
-
-        "preview_url":
-            reel.get("preview_url"),
-    })
+    record.update(
+        {
+            "message_type": "reel",
+            "media_id": str(msg.get("original_media_igid")),
+            "media_url": reel.get("target_url"),
+            "creator_username": reel.get("header_title_text"),
+            "preview_url": reel.get("preview_url"),
+        }
+    )
 
     return record
 
@@ -130,32 +110,24 @@ def parse_post(msg):
     record = base_record(msg)
 
     print("\nPOST PAYLOAD")
-    print(json.dumps(
-        msg["xma_media_share"][0],
-        indent=2,
-        default=str,
-    ))
+    print(
+        json.dumps(
+            msg["xma_media_share"][0],
+            indent=2,
+            default=str,
+        )
+    )
 
-    record.update({
-        "message_type": "post",
-
-        "media_id": str(
-            msg.get("original_media_igid")
-        ),
-
-        "media_url":
-            post.get("target_url"),
-
-        "creator_username":
-            post.get("header_title_text"),
-
-        "preview_url":
-            post.get("preview_url"),
-
-        "text_content":
-            post.get("title_text")
-            or post.get("caption_body_text"),
-    })
+    record.update(
+        {
+            "message_type": "post",
+            "media_id": str(msg.get("original_media_igid")),
+            "media_url": post.get("target_url"),
+            "creator_username": post.get("header_title_text"),
+            "preview_url": post.get("preview_url"),
+            "text_content": post.get("title_text") or post.get("caption_body_text"),
+        }
+    )
 
     return record
 
@@ -163,27 +135,22 @@ def parse_post(msg):
 def parse_audio(msg):
     audio = msg["reels_audio_share"][0]
 
-    audio_id = str(
-        msg.get("original_media_igid")
-    )
+    audio_id = str(msg.get("original_media_igid"))
 
     record = base_record(msg)
 
-    record.update({
-        "message_type": "audio",
-
-        "audio_id": audio_id,
-
-        "media_url":
-            f"https://www.instagram.com/reels/audio/{audio_id}/",
-
-        "preview_url":
-            (
+    record.update(
+        {
+            "message_type": "audio",
+            "audio_id": audio_id,
+            "media_url": f"https://www.instagram.com/reels/audio/{audio_id}/",
+            "preview_url": (
                 audio["preview_extra_urls_info"][0]["url"]
                 if audio.get("preview_extra_urls_info")
                 else None
             ),
-    })
+        }
+    )
 
     return record
 
@@ -194,11 +161,17 @@ def parse_unknown(msg):
 
 from services.message_service import save_message
 
+
 async def save_to_db(record):
     await save_message(record)
     pretty_print(record)
 
-async def send_dm_reply(client,thread_id,text,): 
+
+async def send_dm_reply(
+    client,
+    thread_id,
+    text,
+):
     await client.direct_send(
         text=text,
         thread_ids=[str(thread_id)],
@@ -206,8 +179,9 @@ async def send_dm_reply(client,thread_id,text,):
 
 
 import traceback
+
+
 async def process_event(event, client):
-    
 
     from services.user_service import resolve_user
 
@@ -314,7 +288,7 @@ async def process_event(event, client):
             record = parse_text(msg)
 
         elif item_type == "xma_clip":
-            
+
             record = parse_reel(msg)
 
         elif item_type == "xma_media_share":
@@ -328,29 +302,42 @@ async def process_event(event, client):
 
         if sender:
             record["sender_username"] = sender.get("username")
-            record["instagram_user_id"] = sender.get(
-                "instagram_user_id"
-            )
+            record["instagram_user_id"] = sender.get("instagram_user_id")
 
         await save_to_db(record)
+
+        from services.audio_job_service import (
+            create_audio_job,
+        )
+
+        if record["message_type"] in [
+            "reel",
+            "post",
+        ]:
+            await create_audio_job(
+                media_id=record["media_id"],
+                media_url=record["media_url"],
+                instagram_user_id=record.get("instagram_user_id"),
+            )
 
     except Exception as e:
         print("❌ PROCESSING ERROR")
         traceback.print_exc()
 
+
 def on_message(event):
-    asyncio.create_task(
-        process_event(event, INSTAGRAM_CLIENT)
-    )
+    asyncio.create_task(process_event(event, INSTAGRAM_CLIENT))
 
 
 def on_direct(event):
     pass
 
+
 async def heartbeat():
     while True:
         print("💓 Alive")
         await asyncio.sleep(300)
+
 
 async def main():
     await connect_db()
@@ -400,10 +387,7 @@ async def main():
                     break
 
                 except Exception as reconnect_error:
-                    print(
-                        f"❌ Reconnect Failed: "
-                        f"{reconnect_error}"
-                    )
+                    print(f"❌ Reconnect Failed: " f"{reconnect_error}")
 
                     await asyncio.sleep(10)
 
